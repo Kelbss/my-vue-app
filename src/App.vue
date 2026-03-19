@@ -459,52 +459,54 @@ export default {
   },
   methods: {
     // ========== AUTH ==========
-    async signup() {
-      if (!this.authForm.name || !this.authForm.email || !this.authForm.password) {
-        this.authError = 'Please fill in all required fields.'
-        return
-      }
-      this.authLoading = true
-      this.authError = ''
-      try {
-        // 1. Create auth user
-        const authRes = await supabase('POST', '/auth/v1/signup', {
-          email: this.authForm.email,
-          password: this.authForm.password
-        })
-        if (authRes.error) throw new Error(authRes.error.message)
+   async signup() {
+  if (!this.authForm.name || !this.authForm.email || !this.authForm.password) {
+    this.authError = 'Please fill in all required fields.'
+    return
+  }
+  this.authLoading = true
+  this.authError = ''
+  try {
+    const authRes = await supabase('POST', '/auth/v1/signup', {
+      email: this.authForm.email,
+      password: this.authForm.password
+    })
 
-        // 2. Save profile to students table
-        await supabase('POST', '/rest/v1/students', {
-          id: authRes.user.id,
-          name: this.authForm.name,
-          email: this.authForm.email,
-          school: this.authForm.school,
-          course: this.authForm.course,
-          year: this.authForm.year,
-          points: 0
-        }, authRes.access_token)
+    // Fix: check kung may user or session
+    const user = authRes.user || authRes.session?.user
+    const token = authRes.access_token || authRes.session?.access_token
 
-        this.currentUser = {
-          id: authRes.user.id,
-          name: this.authForm.name,
-          email: this.authForm.email,
-          school: this.authForm.school,
-          course: this.authForm.course,
-          year: this.authForm.year
-        }
-        this.userToken = authRes.access_token
-        this.editForm = { ...this.currentUser }
-        localStorage.setItem('pp_user', JSON.stringify(this.currentUser))
-        localStorage.setItem('pp_token', this.userToken)
-        this.showToast('🎉 Account created! Welcome!', 'success')
-        this.checkDailyLogin()
-      } catch (err) {
-        this.authError = err.message || 'Signup failed. Try again.'
-      }
-      this.authLoading = false
-    },
+    if (!user || !user.id) throw new Error('Signup failed. Try again.')
 
+    await supabase('POST', '/rest/v1/students', {
+      id: user.id,
+      name: this.authForm.name,
+      email: this.authForm.email,
+      school: this.authForm.school,
+      course: this.authForm.course,
+      year: this.authForm.year,
+      points: 0
+    }, token)
+
+    this.currentUser = {
+      id: user.id,
+      name: this.authForm.name,
+      email: this.authForm.email,
+      school: this.authForm.school,
+      course: this.authForm.course,
+      year: this.authForm.year
+    }
+    this.userToken = token
+    this.editForm = { ...this.currentUser }
+    localStorage.setItem('pp_user', JSON.stringify(this.currentUser))
+    localStorage.setItem('pp_token', this.userToken)
+    this.showToast('🎉 Account created! Welcome!', 'success')
+    this.checkDailyLogin()
+  } catch (err) {
+    this.authError = err.message || 'Signup failed. Try again.'
+  }
+  this.authLoading = false
+},
     async login() {
       if (!this.authForm.email || !this.authForm.password) {
         this.authError = 'Please enter email and password.'

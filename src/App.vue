@@ -368,7 +368,9 @@ async function supabase(method, path, body = null, token = null) {
     headers,
     body: body ? JSON.stringify(body) : null
   })
-  return res.json()
+  // Fix: handle empty responses (204 No Content)
+  const text = await res.text()
+  return text ? JSON.parse(text) : {}
 }
 
 export default {
